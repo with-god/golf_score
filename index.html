@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>아마추어 골프 대회 - 신페리오 계산기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; }
+        
+        /* Custom Scrollbar for tables */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Input styles adjusted for table cells */
+        .hole-input {
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            border: none;
+            background: transparent;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+        .hole-input:focus {
+            outline: none;
+            background-color: #f0fdf4;
+        }
+        
+        .hidden-hole-bg {
+            background-color: #dcfce7; /* green-100 */
+            border-bottom: 2px solid #16a34a;
+        }
+
+        /* Tab Styles */
+        .tab-btn.active {
+            background-color: #10b981; /* emerald-500 */
+            color: white;
+            border-color: #059669;
+        }
+        .tab-btn {
+            background-color: #f3f4f6;
+            color: #4b5563;
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+        }
+
+        /* Sticky Column Shadow */
+        .sticky-col {
+            position: sticky;
+            left: 0;
+            z-index: 10;
+            background-color: white; /* Ensure background is opaque */
+        }
+        .sticky-col::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(to right, rgba(0,0,0,0.05), transparent);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-10">
+
+    <!-- Header -->
+    <header class="bg-emerald-700 text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex flex-col">
+                <h1 class="text-lg md:text-2xl font-bold"><i class="fa-solid fa-golf-ball-tee mr-2"></i>아마추어 골프</h1>
+                <p class="text-emerald-100 text-xs md:text-sm">신페리오 스코어 계산기</p>
+            </div>
+            <button onclick="window.print()" class="hidden md:block bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded text-sm font-medium transition shadow">
+                <i class="fa-solid fa-print mr-2"></i>인쇄하기
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-2 md:px-4 py-4 space-y-6">
+
+        <!-- 2. Group/Course Configuration -->
+        <section class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-base md:text-lg font-bold text-gray-700 border-l-4 border-emerald-500 pl-3">1. 코스(그룹) 및 인원 설정</h2>
+            </div>
+            
+            <div class="p-4">
+                <div id="course-config-container" class="space-y-3 mb-4">
+                    <!-- Dynamic Course Inputs will appear here -->
+                </div>
+                
+                <div class="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between border-t border-gray-100 pt-4">
+                    <button onclick="addCourseConfigRow()" class="text-emerald-600 text-sm font-bold hover:text-emerald-800 flex items-center px-2 py-1 rounded hover:bg-emerald-50 transition">
+                        <i class="fa-solid fa-plus-circle mr-1"></i> 코스 추가
+                    </button>
+                    
+                    <div class="flex items-center justify-between w-full md:w-auto gap-4 bg-gray-50 px-3 py-2 rounded-lg">
+                        <span class="text-sm font-bold text-gray-600">총 인원: <span id="total-player-count" class="text-emerald-600 text-lg">0</span>명</span>
+                        <button onclick="applyCourseConfig()" class="bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-red-600 px-3 py-1.5 rounded text-xs font-bold transition shadow-sm">
+                            <i class="fa-solid fa-rotate-left mr-1"></i>초기화
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 1. Course Setup & Hidden Holes -->
+        <section class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex flex-col md:flex-row justify-between md:items-center gap-2">
+                <h2 class="text-base md:text-lg font-bold text-gray-700 border-l-4 border-emerald-500 pl-3">2. 코스별 파(Par) 및 히든홀</h2>
+                <button onclick="randomizeCurrentHiddenHoles()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs md:text-sm font-bold shadow transition active:scale-95 self-end md:self-auto">
+                    <i class="fa-solid fa-shuffle mr-1"></i>히든홀 재추첨
+                </button>
+            </div>
+            
+            <div class="p-4">
+                <div class="bg-blue-50 text-blue-800 text-xs p-3 rounded mb-4 border border-blue-100 leading-relaxed">
+                    <p><strong>💡 설정 팁:</strong> 아래 탭을 눌러 코스를 선택하세요. 히든홀은 <strong>Par4 8개 + Par3 2개 + Par5 2개</strong>로 자동 배정됩니다.</p>
+                </div>
+
+                <!-- Course Tabs -->
+                <div id="course-tabs" class="flex space-x-1 mb-0 overflow-x-auto pb-2 scrollbar-hide">
+                    <!-- Tabs generated by JS -->
+                </div>
+
+                <!-- Par & Hidden Hole Table -->
+                <div class="overflow-x-auto border border-gray-200 rounded-b-lg rounded-tr-lg shadow-inner">
+                    <table class="w-full min-w-[800px] text-sm text-center border-collapse table-fixed bg-white">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-600 text-xs md:text-sm">
+                                <th class="p-2 border w-16 sticky-col bg-gray-100 z-20 font-bold">구분</th>
+                                <!-- Holes 1-9 -->
+                                <script>
+                                    for(let i=1; i<=9; i++) document.write(`<th class="p-1 border w-10">${i}</th>`);
+                                </script>
+                                <th class="p-2 border bg-gray-200 w-12 font-bold text-gray-700">OUT</th>
+                                <!-- Holes 10-18 -->
+                                <script>
+                                    for(let i=10; i<=18; i++) document.write(`<th class="p-1 border w-10">${i}</th>`);
+                                </script>
+                                <th class="p-2 border bg-gray-200 w-12 font-bold text-gray-700">IN</th>
+                                <th class="p-2 border bg-gray-300 w-14 font-bold text-gray-800">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="course-setup-tbody">
+                            <!-- Generated by JS to match column widths perfectly -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Score Input -->
+        <section class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-base md:text-lg font-bold text-gray-700 border-l-4 border-emerald-500 pl-3">3. 플레이어 스코어 입력</h2>
+                <button onclick="fillRandomScores()" class="text-xs text-gray-400 hover:text-gray-600 underline">
+                    랜덤 채우기
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[800px] text-sm text-center whitespace-nowrap relative border-collapse">
+                    <thead class="bg-emerald-600 text-white text-xs md:text-sm">
+                        <tr>
+                            <th class="p-3 sticky-col bg-emerald-700 z-20 w-24 md:w-32 min-w-[100px] text-left pl-4 shadow-md">이름</th>
+                            <script>
+                                for(let i=1; i<=18; i++) {
+                                    document.write(`<th class="p-2 w-10 md:w-12 font-normal border-emerald-500 border-r last:border-r-0">${i}</th>`);
+                                }
+                            </script>
+                            <th class="p-3 bg-emerald-800 w-14 md:w-16 font-bold shadow-inner">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="player-score-body" class="divide-y divide-gray-100">
+                        <!-- Player rows will be generated here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 4. Leaderboard -->
+        <section class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <h2 class="text-base md:text-lg font-bold text-gray-700 border-l-4 border-emerald-500 pl-3">4. 최종 순위 (신페리오)</h2>
+            </div>
+            <div class="bg-emerald-50 p-3 text-xs text-emerald-800 border-b border-emerald-100">
+                <p><strong>📊 계산 공식:</strong> (히든 12홀 × 1.5 - 히든 12홀 Par) × 0.8 = 핸디캡</p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-300 whitespace-nowrap">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="sticky-col bg-gray-50 py-3.5 pl-4 pr-3 text-center text-sm font-semibold text-gray-900 sm:pl-6 w-16 z-20">순위</th>
+                            <th scope="col" class="sticky left-[64px] bg-gray-50 px-3 py-3.5 text-left text-sm font-semibold text-gray-900 z-20 border-r border-gray-200 shadow-sm">이름</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm text-gray-500">소속</th>
+                            <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900">Total</th>
+                            <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-blue-600">핸디캡</th>
+                            <th scope="col" class="px-3 py-3.5 text-center text-sm font-bold text-emerald-700 bg-emerald-50">최종 스코어</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body" class="divide-y divide-gray-200 bg-white">
+                        <!-- Leaderboard rows generated here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="text-center py-8 text-gray-400 text-xs md:text-sm">
+        &copy; 2024 Amateur Golf Tournament Helper
+    </footer>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="fixed inset-0 modal-overlay hidden overflow-y-auto h-full w-full z-[100] flex items-center justify-center px-4">
+        <div class="relative p-5 border w-full max-w-sm shadow-2xl rounded-xl bg-white transform transition-all scale-100">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-emerald-100 mb-4 animate-bounce">
+                    <i class="fa-solid fa-circle-question text-emerald-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg leading-6 font-bold text-gray-900" id="modal-title">확인</h3>
+                <div class="mt-2 py-2">
+                    <p class="text-sm text-gray-500 whitespace-pre-wrap leading-relaxed" id="modal-message">정말 삭제하시겠습니까?</p>
+                </div>
+            </div>
+            <div class="mt-5 sm:mt-6 grid grid-cols-2 gap-3">
+                <button onclick="closeModal()" class="w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2.5 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 transition">
+                    취소
+                </button>
+                <button id="modal-ok-btn" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2.5 bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition">
+                    확인
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Data & State ---
+        const totalHoles = 18;
+        let activeGroupIndex = 0; // Currently selected tab
+        
+        // Course Configuration
+        let courseGroups = [];
+
+        // Player Data
+        let players = [];
+
+        // --- Helpers for Initial Data ---
+        function createDefaultCourseData(name, count) {
+            // Initial Par Data (Standard 72)
+            let pars = Array(19).fill(4); 
+            [3, 5, 12, 16].forEach(h => pars[h] = 3);
+            [2, 6, 11, 15].forEach(h => pars[h] = 5);
+            
+            // Random Hidden Holes
+            let hiddenHoles = generateRandomHiddenHoles(pars);
+
+            return {
+                name: name,
+                count: count,
+                pars: pars,
+                hiddenHoles: hiddenHoles
+            };
+        }
+
+        function generateRandomHiddenHoles(currentPars) {
+            let hidden = Array(19).fill(false);
+            
+            let par3s = [], par4s = [], par5s = [], others = [];
+            for(let i=1; i<=18; i++) {
+                const p = currentPars[i];
+                if (p === 3) par3s.push(i);
+                else if (p === 4) par4s.push(i);
+                else if (p === 5) par5s.push(i);
+                else others.push(i);
+            }
+
+            const pick = (arr, count) => {
+                let shuffled = [...arr].sort(() => Math.random() - 0.5);
+                return shuffled.slice(0, count);
+            };
+
+            let selected = [];
+            selected.push(...pick(par4s, 8));
+            selected.push(...pick(par3s, 2));
+            selected.push(...pick(par5s, 2));
+
+            // Fallback
+            if (selected.length < 12) {
+                let allHoles = Array.from({length: 18}, (_, i) => i + 1);
+                let remaining = allHoles.filter(h => !selected.includes(h));
+                let needed = 12 - selected.length;
+                selected.push(...pick(remaining, needed));
+            }
+
+            selected.forEach(h => hidden[h] = true);
+            return hidden;
+        }
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Default Groups
+            courseGroups = [
+                createDefaultCourseData("A코스", 8),
+                createDefaultCourseData("B코스", 4)
+            ];
+
+            renderCourseConfigInputs();
+            renderCourseTabs();
+            renderActiveCourseData();
+            generatePlayersFromConfig(); 
+        });
+
+        // --- Custom Modal Logic ---
+        let confirmCallback = null;
+
+        function showConfirm(message, callback) {
+            document.getElementById('modal-message').innerText = message;
+            confirmCallback = callback;
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            confirmCallback = null;
+        }
+
+        document.getElementById('modal-ok-btn').addEventListener('click', () => {
+            if (confirmCallback) confirmCallback();
+            closeModal();
+        });
+
+
+        // --- 1. Course Config & Player Generation ---
+
+        function renderCourseConfigInputs() {
+            const container = document.getElementById('course-config-container');
+            container.innerHTML = '';
+            
+            let total = 0;
+
+            courseGroups.forEach((group, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 mb-2 bg-white p-2 rounded border border-gray-100 shadow-sm';
+                row.innerHTML = `
+                    <div class="flex-1 flex items-center gap-2">
+                        <span class="text-xs font-bold text-emerald-600 w-4 text-center">${index+1}.</span>
+                        <input type="text" value="${group.name}" onchange="updateCourseGroup(${index}, 'name', this.value)" 
+                            class="border-b border-gray-300 px-1 py-1 text-sm w-full min-w-[80px] placeholder-gray-400 focus:border-emerald-500 outline-none bg-transparent" placeholder="코스명">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-400">:</span>
+                        <input type="number" value="${group.count}" min="1" onchange="updateCourseGroup(${index}, 'count', this.value)"
+                            class="border border-gray-200 rounded px-2 py-1 text-sm w-14 text-center focus:ring-2 focus:ring-emerald-100 outline-none" placeholder="인원">
+                        <span class="text-xs text-gray-500">명</span>
+                        <button onclick="removeCourseGroup(${index})" class="text-gray-400 hover:text-red-500 ml-1 p-2 rounded hover:bg-red-50 transition" title="삭제"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                `;
+                container.appendChild(row);
+                total += parseInt(group.count) || 0;
+            });
+
+            document.getElementById('total-player-count').innerText = total;
+        }
+
+        function addCourseConfigRow() {
+            const nextLetter = String.fromCharCode(65 + courseGroups.length); // C, D, E...
+            const newGroup = createDefaultCourseData(`${nextLetter}코스`, 4);
+            courseGroups.push(newGroup);
+            
+            renderCourseConfigInputs();
+            renderCourseTabs(); 
+            
+            // Add new players immediately
+            const newGroupIndex = courseGroups.length - 1;
+            const maxId = players.length > 0 ? Math.max(...players.map(p => p.id)) : -1;
+            let nextId = maxId + 1;
+
+            for(let i=1; i<=newGroup.count; i++) {
+                players.push({
+                    id: nextId++,
+                    groupIndex: newGroupIndex,
+                    groupName: newGroup.name, 
+                    name: `${newGroup.name} - ${i}번`,
+                    scores: Array(19).fill(0)
+                });
+            }
+            renderPlayerRows();
+            calculateAll();
+            
+            // Update total
+            updateTotalPlayerCount();
+        }
+
+        function removeCourseGroup(index) {
+            const groupName = courseGroups[index] ? courseGroups[index].name : '해당';
+            const msg = `'${groupName}' 코스와 소속된 플레이어 데이터를 삭제하시겠습니까?\n(다른 코스의 점수는 유지됩니다)`;
+            
+            showConfirm(msg, () => {
+                // 1. Remove players belonging to this group
+                players = players.filter(p => p.groupIndex !== index);
+
+                // 2. Remove the group from config
+                courseGroups.splice(index, 1);
+
+                // 3. Shift groupIndex for remaining players who were after the deleted group
+                players.forEach(p => {
+                    if (p.groupIndex > index) {
+                        p.groupIndex--;
+                    }
+                });
+
+                // 4. Update UI State (Active Tab)
+                if (activeGroupIndex >= courseGroups.length) {
+                    activeGroupIndex = Math.max(0, courseGroups.length - 1);
+                }
+                
+                // 5. Re-render everything
+                renderCourseConfigInputs();
+                renderCourseTabs();
+                renderActiveCourseData();
+                
+                renderPlayerRows();
+                calculateAll();
+                updateTotalPlayerCount();
+            });
+        }
+
+        function updateCourseGroup(index, field, value) {
+            if (field === 'count') {
+                const newCount = parseInt(value) || 0;
+                if (newCount < 1) return; 
+
+                // Dynamically adjust players (Add/Remove) without full reset
+                adjustGroupSize(index, newCount);
+                
+                // Update Config
+                courseGroups[index].count = newCount;
+            } else {
+                // Name Update
+                courseGroups[index].name = value;
+                renderCourseTabs(); 
+                
+                let updated = false;
+                players.forEach(p => {
+                    if (p.groupIndex === index) {
+                        p.groupName = value;
+                        // Auto-update name if it matches default pattern
+                        if (p.name.includes(' - ')) {
+                            const parts = p.name.split(' - ');
+                            if (parts.length === 2 && !isNaN(parts[1].replace('번', ''))) {
+                                p.name = `${value} - ${parts[1]}`;
+                            }
+                        }
+                        updated = true;
+                    }
+                });
+                
+                if(updated) {
+                    renderPlayerRows();
+                    calculateAll();
+                }
+            }
+            updateTotalPlayerCount();
+        }
+
+        function adjustGroupSize(groupIndex, newCount) {
+            const groupPlayers = players.filter(p => p.groupIndex === groupIndex);
+            const currentCount = groupPlayers.length;
+            
+            if (newCount === currentCount) return;
+            
+            if (newCount > currentCount) {
+                // Add new players to the end of this group
+                const countToAdd = newCount - currentCount;
+                const groupName = courseGroups[groupIndex].name;
+                
+                const maxId = players.length > 0 ? Math.max(...players.map(p => p.id)) : -1;
+                let nextId = maxId + 1;
+                
+                const newPlayers = [];
+                for(let i=0; i<countToAdd; i++) {
+                    const pNum = currentCount + i + 1;
+                    newPlayers.push({
+                        id: nextId++,
+                        groupIndex: groupIndex,
+                        groupName: groupName,
+                        name: `${groupName} - ${pNum}번`,
+                        scores: Array(19).fill(0)
+                    });
+                }
+                
+                // Find insert position (after last player of this group)
+                let insertPos = players.length;
+                if (currentCount > 0) {
+                    const lastPlayer = groupPlayers[currentCount - 1];
+                    insertPos = players.indexOf(lastPlayer) + 1;
+                } else {
+                    // If group was empty, insert before next group starts
+                    const nextGroupPlayer = players.find(p => p.groupIndex > groupIndex);
+                    if (nextGroupPlayer) {
+                        insertPos = players.indexOf(nextGroupPlayer);
+                    }
+                }
+                
+                players.splice(insertPos, 0, ...newPlayers);
+                
+            } else {
+                // Remove last N players from this group
+                const countToRemove = currentCount - newCount;
+                const playersToRemove = groupPlayers.slice(-countToRemove);
+                const idsToRemove = new Set(playersToRemove.map(p => p.id));
+                players = players.filter(p => !idsToRemove.has(p.id));
+            }
+            
+            renderPlayerRows();
+            calculateAll();
+        }
+
+        function updateTotalPlayerCount() {
+            let total = courseGroups.reduce((acc, g) => acc + (parseInt(g.count) || 0), 0);
+            document.getElementById('total-player-count').innerText = total;
+        }
+
+        function applyCourseConfig() {
+            showConfirm("모든 데이터를 초기화하고 명단을 새로 생성하시겠습니까?\n(입력된 점수가 삭제됩니다)", () => {
+                generatePlayersFromConfig();
+            });
+        }
+
+        function generatePlayersFromConfig() {
+            players = [];
+            let globalId = 0;
+
+            courseGroups.forEach((group, gIndex) => {
+                for(let i=1; i<=group.count; i++) {
+                    players.push({
+                        id: globalId++,
+                        groupIndex: gIndex, // Store index to link back to group settings
+                        groupName: group.name, 
+                        name: `${group.name} - ${i}번`,
+                        scores: Array(19).fill(0)
+                    });
+                }
+            });
+
+            renderPlayerRows();
+            calculateAll();
+            updateTotalPlayerCount();
+        }
+
+
+        // --- 2. Par & Hidden Holes (Tabbed) ---
+
+        function renderCourseTabs() {
+            const container = document.getElementById('course-tabs');
+            container.innerHTML = '';
+
+            courseGroups.forEach((group, index) => {
+                const btn = document.createElement('button');
+                btn.className = `tab-btn px-4 py-2 text-sm font-bold rounded-t-lg border border-b-0 transition whitespace-nowrap ${index === activeGroupIndex ? 'active shadow-sm' : 'border-transparent hover:bg-gray-200'}`;
+                btn.innerText = group.name;
+                btn.onclick = () => {
+                    activeGroupIndex = index;
+                    renderCourseTabs();
+                    renderActiveCourseData();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function renderActiveCourseData() {
+            // Handle case where all courses are deleted
+            const tbody = document.getElementById('course-setup-tbody');
+            if (courseGroups.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="22" class="p-4 text-center text-gray-400">설정된 코스가 없습니다. 코스를 추가해주세요.</td></tr>';
+                return;
+            }
+
+            const group = courseGroups[activeGroupIndex];
+            const pars = group.pars;
+            const hiddenHoles = group.hiddenHoles;
+            
+            // Calculate Sums
+            const outSum = pars.slice(1, 10).reduce((a, b) => a + b, 0);
+            const inSum = pars.slice(10, 19).reduce((a, b) => a + b, 0);
+            const totalSum = outSum + inSum;
+            
+            // Hidden Count
+            let hiddenCount = 0;
+            for(let i=1; i<=18; i++) if(hiddenHoles[i]) hiddenCount++;
+
+            let html = '';
+            
+            // 1. Par Row
+            html += `<tr>`;
+            html += `<td class="font-bold bg-gray-50 border p-2 text-center sticky-col text-xs md:text-sm">Par</td>`;
+            
+            // 1-9 H
+            for(let i=1; i<=9; i++) {
+                html += `<td class="border p-0"><input type="number" class="hole-input" value="${pars[i]}" onchange="window.updatePars(${i}, this.value)"></td>`;
+            }
+            // OUT Sum
+            html += `<td class="border bg-gray-100 font-bold text-center text-gray-600">${outSum}</td>`;
+            
+            // 10-18 H
+            for(let i=10; i<=18; i++) {
+                html += `<td class="border p-0"><input type="number" class="hole-input" value="${pars[i]}" onchange="window.updatePars(${i}, this.value)"></td>`;
+            }
+            // IN Sum
+            html += `<td class="border bg-gray-100 font-bold text-center text-gray-600">${inSum}</td>`;
+            // Total Sum
+            html += `<td class="border bg-gray-200 font-bold text-center text-gray-800">${totalSum}</td>`;
+            html += `</tr>`;
+
+            // 2. Hidden Row
+            html += `<tr>`;
+            html += `<td class="font-bold bg-gray-50 border text-emerald-600 p-2 text-center sticky-col text-xs md:text-sm">히든</td>`;
+            
+            // 1-9 H
+            for(let i=1; i<=9; i++) {
+                const bgClass = hiddenHoles[i] ? 'hidden-hole-bg' : '';
+                const checked = hiddenHoles[i] ? 'checked' : '';
+                html += `<td class="border text-center ${bgClass} align-middle h-8">
+                    <input type="checkbox" class="w-3 h-3 md:w-4 md:h-4 text-emerald-600 rounded cursor-not-allowed opacity-70" disabled ${checked}>
+                </td>`;
+            }
+            // OUT Placeholder
+            html += `<td class="border bg-gray-50 text-center text-gray-300">-</td>`;
+            
+            // 10-18 H
+            for(let i=10; i<=18; i++) {
+                const bgClass = hiddenHoles[i] ? 'hidden-hole-bg' : '';
+                const checked = hiddenHoles[i] ? 'checked' : '';
+                html += `<td class="border text-center ${bgClass} align-middle h-8">
+                    <input type="checkbox" class="w-3 h-3 md:w-4 md:h-4 text-emerald-600 rounded cursor-not-allowed opacity-70" disabled ${checked}>
+                </td>`;
+            }
+            // IN Placeholder
+            html += `<td class="border bg-gray-50 text-center text-gray-300">-</td>`;
+            // Count
+            const countColor = hiddenCount === 12 ? 'text-emerald-600' : 'text-red-500';
+            html += `<td class="border bg-gray-50 text-center font-bold text-xs ${countColor}">${hiddenCount}/12</td>`;
+            html += `</tr>`;
+
+            tbody.innerHTML = html;
+        }
+
+        // Helper to update pars from input
+        window.updatePars = function(holeIndex, val) {
+            const value = parseInt(val) || 0;
+            courseGroups[activeGroupIndex].pars[holeIndex] = value;
+            
+            // Re-calculate logic
+            randomizeCurrentHiddenHoles(); // triggers re-render
+            calculateAll();
+        };
+
+        function randomizeCurrentHiddenHoles() {
+            if (courseGroups.length === 0) return;
+            const group = courseGroups[activeGroupIndex];
+            group.hiddenHoles = generateRandomHiddenHoles(group.pars);
+            
+            // Re-render table with new data
+            renderActiveCourseData();
+            calculateAll(); // Update calculations for everyone
+        }
+
+        // --- 3. Rendering Players & Scores ---
+
+        function renderPlayerRows() {
+            const tbody = document.getElementById('player-score-body');
+            tbody.innerHTML = '';
+
+            let currentGroupIndex = -1;
+
+            players.forEach((player, pIndex) => {
+                // Group Header Row
+                if (player.groupIndex !== currentGroupIndex) {
+                    currentGroupIndex = player.groupIndex;
+                    const groupName = courseGroups[currentGroupIndex] ? courseGroups[currentGroupIndex].name : player.groupName;
+                    
+                    const groupTr = document.createElement('tr');
+                    groupTr.className = "bg-gray-100 text-gray-600 font-bold text-xs";
+                    groupTr.innerHTML = `
+                        <td class="p-2 sticky-col bg-gray-100 text-left pl-4 border-r border-gray-300 z-20">
+                            ${groupName}
+                        </td>
+                        <td colspan="19" class="p-1 text-left pl-3 text-gray-400">
+                             <i class="fa-solid fa-arrow-down mr-1"></i> 점수 입력
+                        </td>
+                    `;
+                    tbody.appendChild(groupTr);
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 group";
+
+                // Name Input
+                const nameTd = document.createElement('td');
+                nameTd.className = "p-2 sticky-col bg-white group-hover:bg-gray-50 border-r border-gray-200 shadow-sm z-20";
+                const nameInput = document.createElement('input');
+                nameInput.type = "text";
+                nameInput.value = player.name;
+                nameInput.className = "w-full border-b border-transparent focus:border-emerald-500 focus:outline-none text-left font-medium text-gray-700 bg-transparent text-sm";
+                nameInput.onchange = (e) => {
+                    players[pIndex].name = e.target.value;
+                    calculateAll();
+                };
+                nameTd.appendChild(nameInput);
+                tr.appendChild(nameTd);
+
+                // Score Inputs 1-18
+                for (let h = 1; h <= 18; h++) {
+                    const td = document.createElement('td');
+                    td.className = "p-0 border-r border-b border-gray-100 last:border-r-0"; 
+                    
+                    // Visual cues
+                    const groupConfig = courseGroups[player.groupIndex];
+                    if (groupConfig && groupConfig.hiddenHoles[h]) {
+                        td.classList.add('bg-emerald-50');
+                    }
+
+                    const input = document.createElement('input');
+                    input.type = "tel"; 
+                    input.className = "w-full h-9 text-center bg-transparent focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 text-sm";
+                    input.value = player.scores[h] === 0 ? '' : player.scores[h];
+                    input.placeholder = "-";
+                    input.oninput = (e) => {
+                        const val = parseInt(e.target.value);
+                        players[pIndex].scores[h] = isNaN(val) ? 0 : val;
+                        document.getElementById(`gross-${pIndex}`).innerText = players[pIndex].scores.reduce((a, b) => a + b, 0);
+                        calculateAll();
+                    };
+                    td.appendChild(input);
+                    tr.appendChild(td);
+                }
+
+                // Gross Display (Total)
+                const grossTd = document.createElement('td');
+                grossTd.className = "p-2 font-bold bg-gray-50 border-l border-gray-200 text-gray-800";
+                grossTd.id = `gross-${pIndex}`;
+                // Initial sum calculation
+                grossTd.innerText = player.scores.reduce((a, b) => a + b, 0);
+                tr.appendChild(grossTd);
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- 4. Calculation ---
+
+        function calculateAll() {
+            const results = players.map(p => {
+                const gross = p.scores.reduce((a, b) => a + b, 0);
+                
+                // Get Configuration for THIS player's group
+                const groupConfig = courseGroups[p.groupIndex];
+                
+                // If group config missing (deleted?), fallback to safe defaults or skip
+                if (!groupConfig) return { ...p, gross: 0, handicap: 0, net: 0 };
+
+                let hiddenScoreSum = 0;
+                let hiddenParSum = 0;
+                
+                for(let i=1; i<=18; i++) {
+                    if(groupConfig.hiddenHoles[i]) {
+                        hiddenScoreSum += p.scores[i];
+                        hiddenParSum += groupConfig.pars[i];
+                    }
+                }
+
+                if (gross === 0) return { ...p, gross: 0, handicap: 0, net: 0 };
+
+                let handicap = ((hiddenScoreSum * 1.5) - hiddenParSum) * 0.8;
+                handicap = Math.round(handicap * 10) / 10;
+                
+                const net = gross - handicap;
+
+                return {
+                    ...p,
+                    gross,
+                    handicap,
+                    net: parseFloat(net.toFixed(1))
+                };
+            });
+
+            renderLeaderboard(results);
+        }
+
+        function renderLeaderboard(results) {
+            const validResults = results.filter(r => r.gross > 0);
+            
+            validResults.sort((a, b) => {
+                if (a.net !== b.net) return a.net - b.net;
+                return a.gross - b.gross;
+            });
+
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '';
+
+            if (validResults.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-gray-400">점수를 입력하면 순위가 표시됩니다.</td></tr>';
+                return;
+            }
+
+            validResults.forEach((r, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50";
+                let rankIcon = `<span class="text-gray-500 font-bold">${index + 1}</span>`;
+                
+                if(index === 0) { tr.className = "bg-yellow-50 hover:bg-yellow-100"; rankIcon = '🥇'; }
+                else if(index === 1) { tr.className = "bg-gray-50 hover:bg-gray-100"; rankIcon = '🥈'; }
+                else if(index === 2) { tr.className = "bg-orange-50 hover:bg-orange-100"; rankIcon = '🥉'; }
+                
+                // Get group name dynamically
+                const groupName = courseGroups[r.groupIndex] ? courseGroups[r.groupIndex].name : r.groupName;
+
+                tr.innerHTML = `
+                    <td class="sticky-col bg-inherit py-4 pl-4 pr-3 text-center sm:pl-6 z-20 border-r border-transparent">
+                        ${rankIcon}
+                    </td>
+                    <td class="sticky left-[64px] bg-inherit px-3 py-4 text-sm font-bold text-gray-800 z-20 shadow-sm border-r border-gray-200">
+                        ${r.name}
+                    </td>
+                    <td class="px-3 py-4 text-xs text-gray-500">
+                        ${groupName}
+                    </td>
+                    <td class="px-3 py-4 text-sm text-gray-500 text-center">
+                        ${r.gross}
+                    </td>
+                    <td class="px-3 py-4 text-sm text-blue-600 text-center font-medium">
+                        ${r.handicap}
+                    </td>
+                    <td class="px-3 py-4 text-base text-emerald-700 text-center font-bold">
+                        ${r.net}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function fillRandomScores() {
+            players.forEach((p, idx) => {
+                const groupConfig = courseGroups[p.groupIndex];
+                if (!groupConfig) return;
+
+                for(let i=1; i<=18; i++) {
+                    const par = groupConfig.pars[i];
+                    const offset = Math.floor(Math.random() * 5) - 1; 
+                    p.scores[i] = par + offset;
+                }
+            });
+            renderPlayerRows();
+            calculateAll();
+        }
+
+        function resetData() {
+            showConfirm('모든 점수를 초기화 하시겠습니까?', () => {
+                players.forEach(p => p.scores.fill(0));
+                renderPlayerRows();
+                renderLeaderboard([]);
+            });
+        }
+    </script>
+</body>
+</html>
